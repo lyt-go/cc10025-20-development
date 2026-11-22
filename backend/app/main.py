@@ -5,14 +5,27 @@
 """
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.routers import ROUTERS
+from app.services import service_for
 from app.store import store
 
-app = FastAPI(title="数据资产与生命周期治理平台", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """进程启动：从持久化审计档案与回放索引重放归档，同步质量统计。"""
+    audit_service = service_for("audit_log")
+    if audit_service is not None:
+        audit_service.replay_archived_audits()
+    yield
+
+
+app = FastAPI(title="数据资产与生命周期治理平台", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

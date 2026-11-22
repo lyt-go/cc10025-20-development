@@ -86,6 +86,10 @@
       </form>
     </div>
 
+    <div v-if="showArchivePanel">
+      <ArchiveReplayPanel ref="archivePanel" :module-key="meta.key" />
+    </div>
+
     <footer class="page-foot">
       <span>共 {{ total }} 条{{ meta.name }}记录</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
@@ -103,10 +107,15 @@ import {
   moduleMeta,
   runAction as applyAction,
 } from '@/api/backend-service'
+import ArchiveReplayPanel from '@/views/ArchiveReplayPanel.vue'
 import type { EntryRow } from '@/data/types'
 
 const props = defineProps<{ moduleKey: string }>()
 const meta = moduleMeta(props.moduleKey)
+const archivePanel = ref<InstanceType<typeof ArchiveReplayPanel> | null>(null)
+const showArchivePanel = computed(() =>
+  ['audit_log', 'quality_report'].includes(props.moduleKey),
+)
 const rows = ref<EntryRow[]>([])
 const total = ref(0)
 const errorMessage = ref('')
@@ -171,6 +180,9 @@ async function runAction(action: string, row: EntryRow) {
     const result = await applyAction(meta.key, Number(row.id), action)
     if (!result.ok) throw new Error(result.message)
     await reload()
+    if (showArchivePanel.value && action === '提交归档') {
+      await archivePanel.value?.loadData()
+    }
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '操作失败'
   }

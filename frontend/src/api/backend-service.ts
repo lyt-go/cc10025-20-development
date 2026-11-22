@@ -1,6 +1,14 @@
 import { request } from './client'
 import { moduleMeta } from '@/data/modules'
-import type { ActionResult, EntryRow, OverviewResult, PageResult } from '@/data/types'
+import type {
+  ActionResult,
+  ArchiveListResult,
+  ArchiveQualityView,
+  EntryRow,
+  OverviewResult,
+  PageResult,
+  ReplayResult,
+} from '@/data/types'
 
 export { moduleMeta }
 
@@ -57,5 +65,26 @@ export async function downloadEntries(
 export async function loadOverview(): Promise<OverviewResult> {
   const response = await request('/api/overview')
   if (!response.ok) throw new Error('运营概览读取失败')
+  return await response.json()
+}
+
+/** 列出磁盘上全部审计档案及回放索引、确认证据。 */
+export async function listAuditArchives(): Promise<ArchiveListResult> {
+  const response = await request('/api/audit-log/archives')
+  if (!response.ok) throw new Error('审计归档读取失败')
+  return await response.json()
+}
+
+/** 触发持久化审计档案回放，并同步质量统计。 */
+export async function replayAuditArchives(): Promise<ReplayResult> {
+  const response = await request('/api/audit-log/replay', { method: 'POST' })
+  if (!response.ok) throw new Error('审计归档回放失败')
+  return await response.json()
+}
+
+/** 回读质量报告中的归档证据（事件级确认/异常状态）。 */
+export async function loadArchiveQualityView(): Promise<ArchiveQualityView> {
+  const response = await request('/api/quality-report/archive-view')
+  if (!response.ok) throw new Error('归档质量证据读取失败')
   return await response.json()
 }

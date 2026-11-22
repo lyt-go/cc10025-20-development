@@ -77,5 +77,35 @@ npm run dev
 - 列表接口统一返回 `{ items, total, page, size }`，动作接口统一返回 `{ ok, message }`。
 - 状态流转只允许在 `app/services` 里改，路由层不做业务判断。
 
+## 审计归档回放
+
+审计归档把「档案文件」和「归档登记」拆成两步，保证进程重启后质量统计仍能对上：
+
+- 提交归档先把完整档案原子落盘到 `backend/app/data/audit/audit_<记录编号>.json`，
+  再登记持久化的**归档回放索引** `archive_replay_index.json`（临时文件 + `os.replace`
+  原子替换，杜绝部分写入产生半截登记）。
+- 档案已写完整但登记失败时，记录保持未确认：档案可回读，但不计入质量统计；
+  重启或再次归档时只补登记、不覆盖原始证据。
+- 进程启动（`app/main.py` 的 lifespan）自动调用 `replay_archived_audits`，
+  按回放索引把已确认档案重放回内存；同一条事故按记录编号去重，首次确认与
+  重放都只贡献一次。
+- 质量报告服务用回放索引聚合持久档案异常，固定编号 `QUAL-AUDIT-ARCHIVE` 的
+  聚合报告幂等更新，并把事件级确认/异常状态持久化到
+  `backend/app/data/quality/archive_quality_view.json`。
+- 未确认文件在所有接口与前端面板上都明确标注，不能冒充完整归档结果。
+
+回放相关接口（固定路径，先于通用 `/api/{module}` 注册）：
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/api/audit-log/archives` | 列出全部审计档案、回放索引与确认证据 |
+| GET | `/api/audit-log/archives/{record_id}` | 回读单条封存档案（含 confirmed 标记） |
+| POST | `/api/audit-log/replay` | 触发持久档案回放并同步质量统计 |
+| GET | `/api/quality-report/archive-view` | 回读归档质量证据（事件与确认状态） |
+
+后端测试：`test_cross_module.py`（既有跨模块链）、`test_archive_replay.py`
+（归档/登记失败/重启/补登记/幂等/容错）、`test_archive_routes.py`（HTTP 路由，
+基于内置 ASGI 调用器，无需额外依赖）。
+
 领域：数据工程
 子方向：数仓与数据湖

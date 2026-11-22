@@ -15,6 +15,12 @@ class Store:
             name: [dict(row) for row in rows] for name, rows in SEED_ROWS.items()
         }
 
+    def reset(self) -> None:
+        """恢复到种子数据，模拟进程重启后的内存状态（持久档案仍留在磁盘）。"""
+        self._tables = {
+            name: [dict(row) for row in rows] for name, rows in SEED_ROWS.items()
+        }
+
     def module_names(self) -> list[str]:
         return sorted(self._tables)
 
